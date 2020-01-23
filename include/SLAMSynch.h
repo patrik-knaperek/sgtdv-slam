@@ -11,7 +11,7 @@ public:
     void SetMapPublisher(ros::Publisher mapPublisher);
     void SetCarStatePublisher(ros::Publisher carStatePublisher);
     void DoMap(const sgtdv_msgs::Point2DArr::ConstPtr &msg);
-    void DoPose(); //TODO: Specify msg type
+    void DoPose(); //TODO: Specify msg type and something else
 
 private:
     SLAM m_slam;
