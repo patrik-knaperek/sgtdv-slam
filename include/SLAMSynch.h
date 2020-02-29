@@ -1,3 +1,9 @@
+/*****************************************************/
+//Organization: Stuba Green Team
+//Authors: Juraj Krasňanský
+/*****************************************************/
+
+
 #include <ros/ros.h>
 #include "SLAM.h"
 #include <sgtdv_msgs/ConeArr.h>

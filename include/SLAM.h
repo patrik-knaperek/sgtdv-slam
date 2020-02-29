@@ -1,3 +1,9 @@
+/*****************************************************/
+//Organization: Stuba Green Team
+//Authors: Martin Lučan, Andrej Érdelsky, Juraj Krasňanský
+/*****************************************************/
+
+
 #include <ros/ros.h>
 #include <sgtdv_msgs/Point2DArr.h>
 #include <sgtdv_msgs/ConeArr.h>

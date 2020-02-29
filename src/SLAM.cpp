@@ -1,3 +1,9 @@
+/*****************************************************/
+//Organization: Stuba Green Team
+//Authors: Martin Lučan, Andrej Érdelsky, Juraj Krasňanský
+/*****************************************************/
+
+
 #include "../include/SLAM.h"
 
 SLAM::SLAM()
