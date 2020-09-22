@@ -8,7 +8,7 @@
 
 SLAMSynch::SLAMSynch()
 {
-    m_receivedMap = false;
+    m_poseReceived = false;
 }
 
 SLAMSynch::~SLAMSynch()
@@ -26,12 +26,17 @@ void SLAMSynch::SetMapPublisher(ros::Publisher mapPublisher)
     m_slam.SetMapPublisher(mapPublisher);
 }
 
-void SLAMSynch::DoPose()
+void SLAMSynch::DoPose(const geometry_msgs::PoseWithCovariance::ConstPtr &msg)
 {
-
+    m_slamMsg.pwc = msg;
+    m_poseReceived = true;
 }
 
-void SLAMSynch::DoMap(const sgtdv_msgs::Point2DArr::ConstPtr &msg)
+void SLAMSynch::DoMap(const sgtdv_msgs::ConeArr::ConstPtr &msg)
 {
-   // m_slam.Do(msg);
+    if (m_poseReceived)
+    {
+        m_slamMsg.cones = msg;
+        m_slam.Do(m_slamMsg);
+    }
 }
