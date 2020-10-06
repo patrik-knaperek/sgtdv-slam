@@ -10,6 +10,22 @@
 SLAM::SLAM()
 {
     m_muUpdate = cv::Mat::zeros(cv::Size(3, 1), CV_32FC1);
+    m_lastPose.theta = 0.f;
+    m_lastPose.x = 0.f;
+    m_lastPose.y = 0.f;
+
+    SetupNoiseMatrices();
+
+    m_motion = cv::Mat_<float>(3, 1, CV_32FC1);
+    m_Jakobian = cv::Mat_<float>(3, 3, CV_32FC1);
+
+    *(m_Jakobian.ptr<float>(0)) = 0.f;
+    *(m_Jakobian.ptr<float>(0) + 1) = 0.f;
+    *(m_Jakobian.ptr<float>(1)) = 0.f;
+    *(m_Jakobian.ptr<float>(1) + 1) = 0.f;
+    *(m_Jakobian.ptr<float>(2)) = 0.f;
+    *(m_Jakobian.ptr<float>(2) + 1) = 0.f;
+    *(m_Jakobian.ptr<float>(2) + 2) = 0.f;
 }
 
 SLAM::~SLAM()
@@ -38,17 +54,20 @@ void SLAM::Do(const SLAMMsg &msg)
     SetupMatrices(msg.cones->cones.size() * 2 + 3);
     InitPose(carPose, msg.pwc->pose);
     InitObservations(msg);
+
     EkfPredict(carPose);
     EkfUpdate();
 
     m_carStatePublisher.publish(carState);
     m_mapPublisher.publish(cones);
+
+    m_lastPose = carPose;
 }
 
 void SLAM::SetupMatrices(size_t size)
 {
     m_muUpdate.resize(size);
-    m_covUpdate = cv::Mat_<float>(size, size);
+    m_covUpdate = cv::Mat_<float>(size, size, CV_32FC1);
     cv::setIdentity(m_covUpdate, std::numeric_limits<float>::min());
     ZeroDiagonal(m_covUpdate, 3);
 }
@@ -61,11 +80,16 @@ void SLAM::ZeroDiagonal(cv::Mat mat, size_t rowCount) const
     }
 }
 
-void SLAM::InitPose(Pose &pose, const geometry_msgs::Pose &msg) const
+void SLAM::InitPose(Pose &pose, const geometry_msgs::Pose &msg)
 {
     pose.x = msg.position.x;
     pose.y = msg.position.y;
     //pose.theta = msg->orientation.  TODO: kvaterniony do stupnov
+
+    float xDiff = pose.x - m_lastPose.x;
+    float yDiff = pose.y - m_lastPose.y;
+    m_traveledDistance = sqrt(xDiff * xDiff + yDiff * yDiff);
+    m_rotationDiff = pose.theta - m_lastPose.theta;
 }
 
 void SLAM::InitObservations(const SLAMMsg &msg)
@@ -78,7 +102,7 @@ void SLAM::InitObservations(const SLAMMsg &msg)
 
         temp.distance = cv::norm(cv::Vec2f( msg.cones->cones[i].coords.x,  msg.cones->cones[i].coords.y)
          - cv::Vec2f(msg.pwc->pose.position.x, msg.pwc->pose.position.y));
-        //temp.alpha = ;    //TODO: orientation from quaternions
+        temp.alpha = std::atan2(msg.cones->cones[i].coords.y, msg.cones->cones[i].coords.x);
 
         m_observations.push_back(temp);
     }
@@ -86,10 +110,120 @@ void SLAM::InitObservations(const SLAMMsg &msg)
 
 void SLAM::EkfPredict(const Pose &pose)
 {
+    int n = m_muUpdate.size().height;
+    float cosRes = cos(*(m_muUpdate.ptr<float>(2)));
+    float sinRes = sin(*(m_muUpdate.ptr<float>(2)));
 
+    *(m_motion.ptr<float>(0)) = m_traveledDistance * cosRes;
+    *(m_motion.ptr<float>(1)) = m_traveledDistance * sinRes;
+    *(m_motion.ptr<float>(2)) = m_rotationDiff;
+
+    *(m_Jakobian.ptr<float>(0) + 2) = -m_traveledDistance * sinRes;
+    *(m_Jakobian.ptr<float>(1) + 2) = m_traveledDistance * cosRes;
+
+    cv::Mat F(3, n - 3, CV_32FC1, cv::Scalar(0.));
+    F.at<float>(0, 0) = 1.f;
+    F.at<float>(1, 1) = 1.f;
+    F.at<float>(2, 2) = 1.f;
+
+    auto transpF = F.t();
+    m_muPredict = m_muUpdate + (transpF * m_motion);
+    
+    cv::Mat G = cv::Mat::eye(n, n, CV_32FC1);
+    G += transpF * m_Jakobian * F;
+    cv::Mat noise = transpF * m_RT * F;
+
+    m_covPredict = G * m_covUpdate * G.t() + noise;
 }
 
 void SLAM::EkfUpdate()
 {
+    for(size_t i = 0; i < m_observations.size(); i++)
+    {
+        int index = -2;
+        Observation obs = m_observations[i];
+        size_t recordsCount = m_muPredict.size().height;
+        size_t currentKnownCones = (recordsCount - 3) / 2;
+        std::vector<float> euclideanConeDist;
+        euclideanConeDist.reserve(currentKnownCones - 1);
 
+        cv::Point2f globalConePos(
+            m_muPredict.at<float>(0, 0) + obs.distance * cos(obs.alpha + m_muPredict.at<float>(2, 0)),
+            m_muPredict.at<float>(1, 0) + obs.distance * sin(obs.alpha + m_muPredict.at<float>(2, 0))
+        );
+
+        if (currentKnownCones == 0)     //prvy kuzel ktory vidime automaticky zaznamenavame
+        {
+            m_muPredict.push_back(cv::Mat(1, 1, CV_32FC1, cv::Scalar(globalConePos.x)));
+            m_muPredict.push_back(cv::Mat(1, 1, CV_32FC1, cv::Scalar(globalConePos.y)));
+
+            m_covPredict.push_back(cv::Mat::zeros(2, m_covPredict.size().width, CV_32FC1));
+            cv::hconcat(m_covPredict, cv::Mat::zeros(m_covPredict.size().height, 2, CV_32FC1), m_covPredict);
+
+            m_covPredict.at<float>(recordsCount, recordsCount) = INF;
+            m_covPredict.at<float>(recordsCount + 1, recordsCount + 1) = INF;
+
+            continue;
+        }
+
+        float min = std::numeric_limits<float>::max();
+        size_t minIdx = 0;
+
+        for (size_t j = 0; j < currentKnownCones; j++)
+        {
+            float tempX = globalConePos.x - m_muUpdate.at<float>(i * 2 + 3);
+            float tempY = globalConePos.y - m_muUpdate.at<float>(i * 2 + 4);
+            float tempRes(sqrt(tempX * tempX + tempY * tempY));
+
+            if (tempRes < min)
+            {
+                minIdx = j;
+                min = tempRes;
+            }
+
+            euclideanConeDist.push_back(tempRes);
+        }
+
+        size_t predictRowIndex = 2 * minIdx + 3;
+
+        if (euclideanConeDist[minIdx] >= THRESHOLD_DISTANCE)
+        {
+            m_muPredict.push_back(cv::Mat(1, 1, CV_32FC1, cv::Scalar(globalConePos.x)));
+            m_muPredict.push_back(cv::Mat(1, 1, CV_32FC1, cv::Scalar(globalConePos.y)));
+
+            m_covPredict.push_back(cv::Mat::zeros(2, m_covPredict.size().width, CV_32FC1));
+            cv::hconcat(m_covPredict, cv::Mat::zeros(m_covPredict.size().height, 2, CV_32FC1), m_covPredict);
+
+            m_covPredict.at<float>(recordsCount, recordsCount) = INF;
+            m_covPredict.at<float>(recordsCount + 1, recordsCount + 1) = INF;
+
+            predictRowIndex = -2;   //TO BE SEEEN
+        }
+
+
+    }
+}
+
+void SLAM::SetupNoiseMatrices()
+{
+    m_RT = cv::Mat_<float>(3, 3, CV_32FC1);
+    m_QT = cv::Mat_<float>(2, 2, CV_32FC1);
+
+    m_RT.at<float>(0, 0) = 0.0000001f;
+    m_RT.at<float>(0, 1) = 0.f;
+    m_RT.at<float>(0, 2) = 0.f;
+
+    m_RT.at<float>(1, 0) = 0.f;
+    m_RT.at<float>(1, 1) = 0.0000001f;
+    m_RT.at<float>(1, 2) = 0.f;
+
+    m_RT.at<float>(2, 0) = 0.f;
+    m_RT.at<float>(2, 1) = 0.f;
+    m_RT.at<float>(2, 2) = 0.0000001f;
+
+    m_QT.at<float>(0, 0) = 0.0000001f;
+    m_QT.at<float>(0, 1) = 0.f;
+
+    m_QT.at<float>(1, 0) = 0.f;
+    m_QT.at<float>(1, 1) = 0.0000001f;
 }

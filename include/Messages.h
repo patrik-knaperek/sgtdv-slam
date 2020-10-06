@@ -6,5 +6,5 @@
 struct SLAMMsg
 {
     sgtdv_msgs::ConeArrConstPtr cones;
-    geometry_msgs::PoseWithCovarianceConstPtr  pwc;
+    geometry_msgs::PoseWithCovarianceConstPtr pwc;
 };

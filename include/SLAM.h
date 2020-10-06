@@ -17,6 +17,9 @@
 #include <geometry_msgs/Pose.h>
 #include <sgtdv_msgs/Cone.h>
 
+constexpr float INF = 1e6;
+constexpr float THRESHOLD_DISTANCE = 3.f;
+
 struct Pose
 {
     Pose() { x = 0.f; y = 0.f; theta = 0.f; };
@@ -50,11 +53,22 @@ private:
     cv::Mat_<float> m_covUpdate;          //matica vztahov
     cv::Mat_<float> m_muPredict;
     cv::Mat_<float> m_covPredict;
+    Pose m_lastPose;
+    float m_traveledDistance = 0.f;
+    float m_rotationDiff = 0.f;
+    cv::Mat m_RT;       //motion noise
+    cv::Mat m_QT;       //measurement noise
+
+    //preallocated buff objects
+    cv::Mat m_motion;
+    cv::Mat m_Jakobian;
 
     void SetupMatrices(size_t size);
     void ZeroDiagonal(cv::Mat mat, size_t rowCount) const;
-    void InitPose(Pose &pose, const geometry_msgs::Pose &msg) const;
+    void InitPose(Pose &pose, const geometry_msgs::Pose &msg);
     void InitObservations(const SLAMMsg &msg);
     void EkfPredict(const Pose &pose);
     void EkfUpdate();
+
+    void SetupNoiseMatrices();
 };
