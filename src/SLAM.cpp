@@ -145,48 +145,34 @@ void SLAM::EkfUpdate()
         size_t recordsCount = m_muPredict.size().height;
         size_t currentKnownCones = (recordsCount - 3) / 2;
         std::vector<float> euclideanConeDist;
-        euclideanConeDist.reserve(currentKnownCones - 1);
+        euclideanConeDist.reserve(currentKnownCones);   //needs one less but 0 - 1 as size_t would give max number of 64bit uint
 
         cv::Point2f globalConePos(
             m_muPredict.at<float>(0, 0) + obs.distance * cos(obs.alpha + m_muPredict.at<float>(2, 0)),
             m_muPredict.at<float>(1, 0) + obs.distance * sin(obs.alpha + m_muPredict.at<float>(2, 0))
         );
 
-        if (currentKnownCones == 0)     //prvy kuzel ktory vidime automaticky zaznamenavame
-        {
-            m_muPredict.push_back(cv::Mat(1, 1, CV_32FC1, cv::Scalar(globalConePos.x)));
-            m_muPredict.push_back(cv::Mat(1, 1, CV_32FC1, cv::Scalar(globalConePos.y)));
-
-            m_covPredict.push_back(cv::Mat::zeros(2, m_covPredict.size().width, CV_32FC1));
-            cv::hconcat(m_covPredict, cv::Mat::zeros(m_covPredict.size().height, 2, CV_32FC1), m_covPredict);
-
-            m_covPredict.at<float>(recordsCount, recordsCount) = INF;
-            m_covPredict.at<float>(recordsCount + 1, recordsCount + 1) = INF;
-
-            continue;
-        }
-
         float min = std::numeric_limits<float>::max();
         size_t minIdx = 0;
 
         for (size_t j = 0; j < currentKnownCones; j++)
-        {
+        {            
             float tempX = globalConePos.x - m_muUpdate.at<float>(i * 2 + 3);
             float tempY = globalConePos.y - m_muUpdate.at<float>(i * 2 + 4);
-            float tempRes(sqrt(tempX * tempX + tempY * tempY));
+            float tempDist(sqrt(tempX * tempX + tempY * tempY));
 
-            if (tempRes < min)
+            if (tempDist < min)
             {
                 minIdx = j;
-                min = tempRes;
+                min = tempDist;
             }
 
-            euclideanConeDist.push_back(tempRes);
+            euclideanConeDist.push_back(tempDist);
         }
 
         size_t predictRowIndex = 2 * minIdx + 3;
 
-        if (euclideanConeDist[minIdx] >= THRESHOLD_DISTANCE)
+        if (currentKnownCones == 0 || euclideanConeDist[minIdx] >= THRESHOLD_DISTANCE)
         {
             m_muPredict.push_back(cv::Mat(1, 1, CV_32FC1, cv::Scalar(globalConePos.x)));
             m_muPredict.push_back(cv::Mat(1, 1, CV_32FC1, cv::Scalar(globalConePos.y)));
