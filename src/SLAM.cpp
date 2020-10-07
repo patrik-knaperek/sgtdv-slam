@@ -17,15 +17,7 @@ SLAM::SLAM()
     SetupNoiseMatrices();
 
     m_motion = cv::Mat_<float>(3, 1, CV_32FC1);
-    m_Jakobian = cv::Mat_<float>(3, 3, CV_32FC1);
-
-    *(m_Jakobian.ptr<float>(0)) = 0.f;
-    *(m_Jakobian.ptr<float>(0) + 1) = 0.f;
-    *(m_Jakobian.ptr<float>(1)) = 0.f;
-    *(m_Jakobian.ptr<float>(1) + 1) = 0.f;
-    *(m_Jakobian.ptr<float>(2)) = 0.f;
-    *(m_Jakobian.ptr<float>(2) + 1) = 0.f;
-    *(m_Jakobian.ptr<float>(2) + 2) = 0.f;
+    m_Jakobian = cv::Mat::zeros(3, 3, CV_32FC1);
 }
 
 SLAM::~SLAM()
@@ -192,24 +184,6 @@ void SLAM::EkfUpdate()
 
 void SLAM::SetupNoiseMatrices()
 {
-    m_RT = cv::Mat_<float>(3, 3, CV_32FC1);
-    m_QT = cv::Mat_<float>(2, 2, CV_32FC1);
-
-    m_RT.at<float>(0, 0) = 0.0000001f;
-    m_RT.at<float>(0, 1) = 0.f;
-    m_RT.at<float>(0, 2) = 0.f;
-
-    m_RT.at<float>(1, 0) = 0.f;
-    m_RT.at<float>(1, 1) = 0.0000001f;
-    m_RT.at<float>(1, 2) = 0.f;
-
-    m_RT.at<float>(2, 0) = 0.f;
-    m_RT.at<float>(2, 1) = 0.f;
-    m_RT.at<float>(2, 2) = 0.0000001f;
-
-    m_QT.at<float>(0, 0) = 0.0000001f;
-    m_QT.at<float>(0, 1) = 0.f;
-
-    m_QT.at<float>(1, 0) = 0.f;
-    m_QT.at<float>(1, 1) = 0.0000001f;
+    m_RT = (cv::Mat_<float>(3, 3, CV_32FC1) << 0.0000001f, 0.f, 0.f, 0.f, 0.0000001f, 0.f, 0.f, 0.f, 0.0000001f);
+    m_QT = (cv::Mat_<float>(2, 2, CV_32FC1) << 0.0000001f, 0.f, 0.f, 0.0000001f);
 }
