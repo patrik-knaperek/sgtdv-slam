@@ -177,8 +177,6 @@ void SLAM::EkfUpdate()
 
             predictRowIndex = -2;   //TO BE SEEEN
         }
-
-
     }
 }
 
