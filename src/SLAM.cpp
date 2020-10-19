@@ -175,8 +175,41 @@ void SLAM::EkfUpdate()
             m_covPredict.at<float>(recordsCount, recordsCount) = INF;
             m_covPredict.at<float>(recordsCount + 1, recordsCount + 1) = INF;
 
-            predictRowIndex = -2;   //TO BE SEEEN
+            predictRowIndex = m_muPredict.size().height - 2;
         }
+
+        size_t N = m_muPredict.size().height;
+        cv::Mat delta(2, 1, CV_32FC1);
+
+        delta.at<float>(0, 0) = m_muPredict.at<float>(predictRowIndex, 0) - m_muPredict.at<float>(0, 0);
+        delta.at<float>(1, 0) = m_muPredict.at<float>(predictRowIndex, 1) - m_muPredict.at<float>(1, 0);
+
+        float q = delta.t().dot(delta);
+        float sq = sqrt(q);
+        
+        cv::Mat z_theta = std::atan2(delta.at<float>(0, 0), delta.at<float>(1, 0));
+        cv::Mat z_hat = (cv::Mat_<float>(2, 1, CV_32FC1) << sq, z_theta - m_muPredict.at<float>(2, 0)); //TODO
+
+        cv::Mat F = cv::Mat::zeroes(5, N, CV_32FC1);
+        F.at<float>(0, 0) = 1.f;
+        F.at<float>(1, 1) = 1.f;
+        F.at<float>(2, 2) = 1.f;
+        F.at<float>(3, index) = 1;
+        F.at<float>(4, index + 1) = 1;
+
+        cv::Mat H_z = (cv::Mat_<float>(2, 5, CV_32FC1) << -sq * delta.at<float>(1), 0.f, sq * delta.at<float>(0), sq * delta.at<float>(1),
+            delta.at<float>(1), -delta.at<float>(0), -q, -delta.at<float>(1), delta.at<float>(0));
+        
+        cv::Mat H = 1.f / q * (H_z * F):
+
+        cv::Mat K = (m_covPredict * H.t()) * ( (H * m_covPredict) * H.t() + Qt ).inv();
+
+        cv::Mat z_dif = (cv::Mat_<float>(2, 1, CV_32FC1) << r,theta); //TODO
+        z_dif -= z_hat;
+        z_dif = (z_dif + M_PI) % (2 * M_PI) - M_PI;
+
+        m_muUpdate = m_muPredict + K * z_dif;
+        m_covUpdate = (cv::Mat::eye(N) - (K * H) * m_covPredict;
     }
 }
 
