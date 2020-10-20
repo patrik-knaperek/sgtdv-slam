@@ -186,11 +186,11 @@ void SLAM::EkfUpdate()
 
         float q = delta.t().dot(delta);
         float sq = sqrt(q);
-        
-        cv::Mat z_theta = std::atan2(delta.at<float>(0, 0), delta.at<float>(1, 0));
+
+        float z_theta = std::atan2(delta.at<float>(0, 0), delta.at<float>(1, 0));
         cv::Mat z_hat = (cv::Mat_<float>(2, 1, CV_32FC1) << sq, z_theta - m_muPredict.at<float>(2, 0)); //TODO
 
-        cv::Mat F = cv::Mat::zeroes(5, N, CV_32FC1);
+        cv::Mat F = cv::Mat::zeros(5, N, CV_32FC1);
         F.at<float>(0, 0) = 1.f;
         F.at<float>(1, 1) = 1.f;
         F.at<float>(2, 2) = 1.f;
@@ -200,16 +200,18 @@ void SLAM::EkfUpdate()
         cv::Mat H_z = (cv::Mat_<float>(2, 5, CV_32FC1) << -sq * delta.at<float>(1), 0.f, sq * delta.at<float>(0), sq * delta.at<float>(1),
             delta.at<float>(1), -delta.at<float>(0), -q, -delta.at<float>(1), delta.at<float>(0));
         
-        cv::Mat H = 1.f / q * (H_z * F):
+        cv::Mat H = 1.f / q * (H_z * F);
 
-        cv::Mat K = (m_covPredict * H.t()) * ( (H * m_covPredict) * H.t() + Qt ).inv();
+        cv::Mat K = (m_covPredict * H.t()) * ( (H * m_covPredict) * H.t() + m_QT).inv();
 
-        cv::Mat z_dif = (cv::Mat_<float>(2, 1, CV_32FC1) << r,theta); //TODO
+        cv::Mat z_dif = (cv::Mat_<float>(2, 1, CV_32FC1) << obs.distance, obs.alpha);
         z_dif -= z_hat;
-        z_dif = (z_dif + M_PI) % (2 * M_PI) - M_PI;
+
+        ModuloMatMembers(z_dif, 2 * M_PI);
+        z_dif -= M_PI;        
 
         m_muUpdate = m_muPredict + K * z_dif;
-        m_covUpdate = (cv::Mat::eye(N) - (K * H) * m_covPredict;
+        m_covUpdate = cv::Mat::eye(N, N, CV_32FC1) - (K * H) * m_covPredict;
     }
 }
 
@@ -217,4 +219,18 @@ void SLAM::SetupNoiseMatrices()
 {
     m_RT = (cv::Mat_<float>(3, 3, CV_32FC1) << 0.0000001f, 0.f, 0.f, 0.f, 0.0000001f, 0.f, 0.f, 0.f, 0.0000001f);
     m_QT = (cv::Mat_<float>(2, 2, CV_32FC1) << 0.0000001f, 0.f, 0.f, 0.0000001f);
+}
+
+void SLAM::ModuloMatMembers(cv::Mat &mat, float modulo) const
+{
+    cv::Mat copy;
+    cv::Mat buff;
+    mat.copyTo(copy);
+
+    copy += M_PI;
+    copy /= (2 * M_PI);
+    copy.convertTo(buff, CV_32SC1);
+
+    buff *= 2 * M_PI;
+    mat -= buff - M_PI;
 }

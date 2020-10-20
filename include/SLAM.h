@@ -69,6 +69,7 @@ private:
     void InitObservations(const SLAMMsg &msg);
     void EkfPredict(const Pose &pose);
     void EkfUpdate();
+    void ModuloMatMembers(cv::Mat &mat, float modulo) const;
 
     void SetupNoiseMatrices();
 };
