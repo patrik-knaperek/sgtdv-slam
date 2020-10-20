@@ -16,8 +16,12 @@ SLAM::SLAM()
 
     SetupNoiseMatrices();
 
-    m_motion = cv::Mat_<float>(3, 1, CV_32FC1);
-    m_Jakobian = cv::Mat::zeros(3, 3, CV_32FC1);
+    m_motion = cv::Mat1f(3, 1);
+    m_Jakobian = cv::Mat1f::zeros(3, 3);
+    m_Hz = cv::Mat1f(2, 5);
+    m_Zhat = cv::Mat1f(2, 1);
+    m_delta = cv::Mat1f(2, 1);
+    m_Zdiff = cv::Mat1f(2, 1);
 }
 
 SLAM::~SLAM()
@@ -59,12 +63,12 @@ void SLAM::Do(const SLAMMsg &msg)
 void SLAM::SetupMatrices(size_t size)
 {
     m_muUpdate.resize(size);
-    m_covUpdate = cv::Mat_<float>(size, size, CV_32FC1);
+    m_covUpdate = cv::Mat1f(size, size);
     cv::setIdentity(m_covUpdate, std::numeric_limits<float>::min());
     ZeroDiagonal(m_covUpdate, 3);
 }
 
-void SLAM::ZeroDiagonal(cv::Mat mat, size_t rowCount) const
+void SLAM::ZeroDiagonal(cv::Mat1f &mat, size_t rowCount) const
 {
     for(size_t i = 0; i < rowCount; i++)
     {
@@ -76,7 +80,7 @@ void SLAM::InitPose(Pose &pose, const geometry_msgs::Pose &msg)
 {
     pose.x = msg.position.x;
     pose.y = msg.position.y;
-    //pose.theta = msg->orientation.  TODO: kvaterniony do stupnov
+    //pose.theta = msg.orientation;  //TODO: kvaterniony do stupnov
 
     float xDiff = pose.x - m_lastPose.x;
     float yDiff = pose.y - m_lastPose.y;
@@ -94,6 +98,7 @@ void SLAM::InitObservations(const SLAMMsg &msg)
 
         temp.distance = cv::norm(cv::Vec2f( msg.cones->cones[i].coords.x,  msg.cones->cones[i].coords.y)
          - cv::Vec2f(msg.pwc->pose.position.x, msg.pwc->pose.position.y));
+
         temp.alpha = std::atan2(msg.cones->cones[i].coords.y, msg.cones->cones[i].coords.x);
 
         m_observations.push_back(temp);
@@ -103,8 +108,10 @@ void SLAM::InitObservations(const SLAMMsg &msg)
 void SLAM::EkfPredict(const Pose &pose)
 {
     int n = m_muUpdate.size().height;
-    float cosRes = cos(*(m_muUpdate.ptr<float>(2)));
-    float sinRes = sin(*(m_muUpdate.ptr<float>(2)));
+    float *muUpdateRow2 = m_muUpdate.ptr<float>(2);
+
+    float cosRes = cos(*(muUpdateRow2));
+    float sinRes = sin(*(muUpdateRow2));
 
     *(m_motion.ptr<float>(0)) = m_traveledDistance * cosRes;
     *(m_motion.ptr<float>(1)) = m_traveledDistance * sinRes;
@@ -113,17 +120,17 @@ void SLAM::EkfPredict(const Pose &pose)
     *(m_Jakobian.ptr<float>(0) + 2) = -m_traveledDistance * sinRes;
     *(m_Jakobian.ptr<float>(1) + 2) = m_traveledDistance * cosRes;
 
-    cv::Mat F(3, n - 3, CV_32FC1, cv::Scalar(0.));
+    cv::Mat1f F = cv::Mat::zeros(3, n - 3, CV_32FC1);
     F.at<float>(0, 0) = 1.f;
     F.at<float>(1, 1) = 1.f;
     F.at<float>(2, 2) = 1.f;
 
-    auto transpF = F.t();
+    cv::Mat1f transpF = F.t();
     m_muPredict = m_muUpdate + (transpF * m_motion);
     
-    cv::Mat G = cv::Mat::eye(n, n, CV_32FC1);
+    cv::Mat1f G = cv::Mat::eye(n, n, CV_32FC1);
     G += transpF * m_Jakobian * F;
-    cv::Mat noise = transpF * m_RT * F;
+    cv::Mat1f noise = transpF * m_RT * F;
 
     m_covPredict = G * m_covUpdate * G.t() + noise;
 }
@@ -132,7 +139,6 @@ void SLAM::EkfUpdate()
 {
     for(size_t i = 0; i < m_observations.size(); i++)
     {
-        int index = -2;
         Observation obs = m_observations[i];
         size_t recordsCount = m_muPredict.size().height;
         size_t currentKnownCones = (recordsCount - 3) / 2;
@@ -179,58 +185,51 @@ void SLAM::EkfUpdate()
         }
 
         size_t N = m_muPredict.size().height;
-        cv::Mat delta(2, 1, CV_32FC1);
+        
+        m_delta << m_muPredict.at<float>(predictRowIndex, 0) - m_muPredict.at<float>(0, 0), m_muPredict.at<float>(predictRowIndex, 1) - m_muPredict.at<float>(1, 0);
 
-        delta.at<float>(0, 0) = m_muPredict.at<float>(predictRowIndex, 0) - m_muPredict.at<float>(0, 0);
-        delta.at<float>(1, 0) = m_muPredict.at<float>(predictRowIndex, 1) - m_muPredict.at<float>(1, 0);
-
-        float q = delta.t().dot(delta);
+        float q = m_delta.t().dot(m_delta);
         float sq = sqrt(q);
 
-        float z_theta = std::atan2(delta.at<float>(0, 0), delta.at<float>(1, 0));
-        cv::Mat z_hat = (cv::Mat_<float>(2, 1, CV_32FC1) << sq, z_theta - m_muPredict.at<float>(2, 0)); //TODO
+        float z_theta = std::atan2(m_delta.at<float>(0, 0), m_delta.at<float>(1, 0));
+        m_Zhat << sq, z_theta - m_muPredict.at<float>(2, 0);
 
-        cv::Mat F = cv::Mat::zeros(5, N, CV_32FC1);
+        cv::Mat1f F = cv::Mat::zeros(5, N, CV_32FC1);
         F.at<float>(0, 0) = 1.f;
         F.at<float>(1, 1) = 1.f;
         F.at<float>(2, 2) = 1.f;
-        F.at<float>(3, index) = 1;
-        F.at<float>(4, index + 1) = 1;
+        F.at<float>(3, predictRowIndex) = 1;
+        F.at<float>(4, predictRowIndex + 1) = 1;
 
-        cv::Mat H_z = (cv::Mat_<float>(2, 5, CV_32FC1) << -sq * delta.at<float>(1), 0.f, sq * delta.at<float>(0), sq * delta.at<float>(1),
-            delta.at<float>(1), -delta.at<float>(0), -q, -delta.at<float>(1), delta.at<float>(0));
+        m_Hz << -sq * m_delta.at<float>(1), 0.f, sq * m_delta.at<float>(0), sq * m_delta.at<float>(1),
+            m_delta.at<float>(1), -m_delta.at<float>(0), -q, -m_delta.at<float>(1), m_delta.at<float>(0);
         
-        cv::Mat H = 1.f / q * (H_z * F);
+        cv::Mat1f H = 1.f / q * (m_Hz * F);
+        cv::Mat1f Htransp = H.t();
 
-        cv::Mat K = (m_covPredict * H.t()) * ( (H * m_covPredict) * H.t() + m_QT).inv();
+        cv::Mat1f K = (m_covPredict * Htransp) * ( (H * m_covPredict) * Htransp + m_QT).inv();
 
-        cv::Mat z_dif = (cv::Mat_<float>(2, 1, CV_32FC1) << obs.distance, obs.alpha);
-        z_dif -= z_hat;
+        m_Zdiff << obs.distance, obs.alpha;
+        m_Zdiff += -m_Zhat + M_PI;
 
-        ModuloMatMembers(z_dif, 2 * M_PI);
-        z_dif -= M_PI;        
+        ModuloMatMembers(m_Zdiff, 2 * M_PI);
+        m_Zdiff -= M_PI;        
 
-        m_muUpdate = m_muPredict + K * z_dif;
+        m_muUpdate = m_muPredict + K * m_Zdiff;
         m_covUpdate = cv::Mat::eye(N, N, CV_32FC1) - (K * H) * m_covPredict;
     }
 }
 
 void SLAM::SetupNoiseMatrices()
 {
-    m_RT = (cv::Mat_<float>(3, 3, CV_32FC1) << 0.0000001f, 0.f, 0.f, 0.f, 0.0000001f, 0.f, 0.f, 0.f, 0.0000001f);
-    m_QT = (cv::Mat_<float>(2, 2, CV_32FC1) << 0.0000001f, 0.f, 0.f, 0.0000001f);
+    m_RT = (cv::Mat1f(3, 3) << 0.0000001f, 0.f, 0.f, 0.f, 0.0000001f, 0.f, 0.f, 0.f, 0.0000001f);
+    m_QT = (cv::Mat1f(2, 2) << 0.0000001f, 0.f, 0.f, 0.0000001f);
 }
 
-void SLAM::ModuloMatMembers(cv::Mat &mat, float modulo) const
-{
-    cv::Mat copy;
-    cv::Mat buff;
-    mat.copyTo(copy);
-
-    copy += M_PI;
-    copy /= (2 * M_PI);
-    copy.convertTo(buff, CV_32SC1);
-
-    buff *= 2 * M_PI;
-    mat -= buff - M_PI;
+void SLAM::ModuloMatMembers(cv::Mat1f &mat, float modulo)
+{    
+    mat.copyTo(m_buff1);
+    m_buff1 /= modulo;
+    m_buff1.convertTo(m_buff2, CV_32SC1);
+    mat -= m_buff2 * modulo;
 }

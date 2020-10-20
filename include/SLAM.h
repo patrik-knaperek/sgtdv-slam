@@ -49,27 +49,33 @@ private:
     ros::Publisher m_mapPublisher;
     ros::Publisher m_carStatePublisher;
     std::vector<Observation> m_observations;
-    cv::Mat_<float> m_muUpdate;           //vektor stavov
-    cv::Mat_<float> m_covUpdate;          //matica vztahov
-    cv::Mat_<float> m_muPredict;
-    cv::Mat_<float> m_covPredict;
+    cv::Mat1f m_muUpdate;           //vektor stavov
+    cv::Mat1f m_covUpdate;          //matica vztahov
+    cv::Mat1f m_muPredict;
+    cv::Mat1f m_covPredict;
     Pose m_lastPose;
     float m_traveledDistance = 0.f;
     float m_rotationDiff = 0.f;
-    cv::Mat m_RT;       //motion noise
-    cv::Mat m_QT;       //measurement noise
+    cv::Mat1f m_RT;       //motion noise
+    cv::Mat1f m_QT;       //measurement noise
 
     //preallocated buff objects
-    cv::Mat m_motion;
-    cv::Mat m_Jakobian;
+    cv::Mat1f m_motion;
+    cv::Mat1f m_Jakobian;
+    cv::Mat1f m_Hz;
+    cv::Mat1f m_Zdiff;
+    cv::Mat1f m_Zhat;
+    cv::Mat1f m_delta;
+    cv::Mat1f m_buff1;
+    cv::Mat1i m_buff2;
 
     void SetupMatrices(size_t size);
-    void ZeroDiagonal(cv::Mat mat, size_t rowCount) const;
+    void ZeroDiagonal(cv::Mat1f &mat, size_t rowCount) const;
     void InitPose(Pose &pose, const geometry_msgs::Pose &msg);
     void InitObservations(const SLAMMsg &msg);
     void EkfPredict(const Pose &pose);
     void EkfUpdate();
-    void ModuloMatMembers(cv::Mat &mat, float modulo) const;
+    void ModuloMatMembers(cv::Mat1f &mat, float modulo);
 
     void SetupNoiseMatrices();
 };
