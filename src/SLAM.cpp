@@ -41,23 +41,23 @@ void SLAM::SetCarStatePublisher(ros::Publisher carStatePublisher)
 
 void SLAM::Do(const SLAMMsg &msg)
 {
-    Pose carPose;
+    Pose pose;
     sgtdv_msgs::ConeArr cones;
-    sgtdv_msgs::CarState carState;
+    sgtdv_msgs::CarPose carPose;
 
     m_observations.clear();
 
     SetupMatrices(msg.cones->cones.size() * 2 + 3);
-    InitPose(carPose, msg.pwc->pose);
+    InitPose(pose, msg.pwc->pose);
     InitObservations(msg);
 
-    EkfPredict(carPose);
+    EkfPredict(pose);
     EkfUpdate();
 
-    m_carStatePublisher.publish(carState);
+    m_carStatePublisher.publish(carPose);
     m_mapPublisher.publish(cones);
 
-    m_lastPose = carPose;
+    m_lastPose = pose;
 }
 
 void SLAM::SetupMatrices(size_t size)

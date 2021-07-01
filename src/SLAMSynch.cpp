@@ -36,6 +36,7 @@ void SLAMSynch::DoMap(const sgtdv_msgs::ConeArr::ConstPtr &msg)
 {
     if (m_poseReceived)
     {
+        m_poseReceived = false;
         m_slamMsg.cones = msg;
         m_slam.Do(m_slamMsg);
     }
