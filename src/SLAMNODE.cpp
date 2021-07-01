@@ -7,7 +7,7 @@
 #include <ros/ros.h>
 #include "../include/SLAMSynch.h"
 #include <sgtdv_msgs/ConeArr.h>
-#include <sgtdv_msgs/CarState.h>
+#include <sgtdv_msgs/CarPose.h>
 
 int main(int argc, char** argv)
 {
@@ -17,7 +17,7 @@ int main(int argc, char** argv)
     ros::NodeHandle handle;
 
     ros::Publisher mapPublisher = handle.advertise<sgtdv_msgs::ConeArr>("slam_map", 1);
-    ros::Publisher carStatePublisher = handle.advertise<sgtdv_msgs::CarState>("slam_pose", 1);
+    ros::Publisher carStatePublisher = handle.advertise<sgtdv_msgs::CarPose>("slam_pose", 1);
 
     synchObj.SetMapPublisher(mapPublisher);
     synchObj.SetCarStatePublisher(carStatePublisher);
