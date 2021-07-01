@@ -16,6 +16,7 @@
 #include <limits>
 #include <geometry_msgs/Pose.h>
 #include <sgtdv_msgs/Cone.h>
+#include <list>
 
 constexpr float INF = 1e6;
 constexpr float THRESHOLD_DISTANCE = 3.f;
@@ -49,6 +50,7 @@ private:
     ros::Publisher m_mapPublisher;
     ros::Publisher m_carStatePublisher;
     std::vector<Observation> m_observations;
+    std::list<sgtdv_msgs::Cone> m_coneCandidates;
     cv::Mat1f m_muUpdate;           //vektor stavov
     cv::Mat1f m_covUpdate;          //matica vztahov
     cv::Mat1f m_muPredict;
@@ -75,7 +77,9 @@ private:
     void InitObservations(const SLAMMsg &msg);
     void EkfPredict(const Pose &pose);
     void EkfUpdate();
+    void DataAssociation(const sgtdv_msgs::ConeArr::ConstPtr &cones, const geometry_msgs::Point &carPosition);
     void ModuloMatMembers(cv::Mat1f &mat, float modulo);
 
     void SetupNoiseMatrices();
+    double GetDistance(const sgtdv_msgs::Point2D &p1, const sgtdv_msgs::Point2D &p2) const;
 };

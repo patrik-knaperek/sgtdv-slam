@@ -51,6 +51,7 @@ void SLAM::Do(const SLAMMsg &msg)
     InitPose(pose, msg.pwc->pose);
     InitObservations(msg);
 
+    DataAssociation(msg.cones, msg.pwc->pose.position);
     EkfPredict(pose);
     EkfUpdate();
 
@@ -220,10 +221,27 @@ void SLAM::EkfUpdate()
     }
 }
 
+void SLAM::DataAssociation(const sgtdv_msgs::ConeArr::ConstPtr &cones, const geometry_msgs::Point &carPosition)
+{
+    for(std::list<sgtdv_msgs::Cone>::const_iterator it = m_coneCandidates.begin(); it != m_coneCandidates.end(); ++it)
+    {
+        it->coords
+    }
+}
+
 void SLAM::SetupNoiseMatrices()
 {
     m_RT = (cv::Mat1f(3, 3) << 0.0000001f, 0.f, 0.f, 0.f, 0.0000001f, 0.f, 0.f, 0.f, 0.0000001f);
     m_QT = (cv::Mat1f(2, 2) << 0.0000001f, 0.f, 0.f, 0.0000001f);
+}
+
+double SLAM::GetDistance(const sgtdv_msgs::Point2D &p1, const sgtdv_msgs::Point2D &p2) const
+{
+    double relativeX = p2.x - p1.x;
+    double relativeY = p2.y - p1.y;
+    double xBuff = p1.x * p2.x;
+    double yBuff = p1.y * p2.y;
+    return std::sqrt(xBuff * xBuff + yBuff * yBuff);
 }
 
 void SLAM::ModuloMatMembers(cv::Mat1f &mat, float modulo)
