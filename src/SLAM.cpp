@@ -34,9 +34,9 @@ void SLAM::SetMapPublisher(ros::Publisher mapPublisher)
     m_mapPublisher = mapPublisher;
 }
 
-void SLAM::SetCarStatePublisher(ros::Publisher carStatePublisher)
+void SLAM::SetCarPosePublisher(ros::Publisher carPosePublisher)
 {
-    m_carStatePublisher = carStatePublisher;
+    m_carPosePublisher = carPosePublisher;
 }
 
 void SLAM::Do(const SLAMMsg &msg)
@@ -55,7 +55,7 @@ void SLAM::Do(const SLAMMsg &msg)
     EkfPredict(pose);
     EkfUpdate();
 
-    m_carStatePublisher.publish(carPose);
+    m_carPosePublisher.publish(carPose);
     m_mapPublisher.publish(cones);
 
     m_lastPose = pose;
@@ -225,7 +225,7 @@ void SLAM::DataAssociation(const sgtdv_msgs::ConeArr::ConstPtr &cones, const geo
 {
     for(std::list<sgtdv_msgs::Cone>::const_iterator it = m_coneCandidates.begin(); it != m_coneCandidates.end(); ++it)
     {
-        it->coords
+        it->coords;
     }
 }
 

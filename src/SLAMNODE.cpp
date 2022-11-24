@@ -17,10 +17,10 @@ int main(int argc, char** argv)
     ros::NodeHandle handle;
 
     ros::Publisher mapPublisher = handle.advertise<sgtdv_msgs::ConeArr>("slam_map", 1);
-    ros::Publisher carStatePublisher = handle.advertise<sgtdv_msgs::CarPose>("slam_pose", 1);
+    ros::Publisher carPosePublisher = handle.advertise<sgtdv_msgs::CarPose>("slam_pose", 1);
 
     synchObj.SetMapPublisher(mapPublisher);
-    synchObj.SetCarStatePublisher(carStatePublisher);
+    synchObj.SetCarPosePublisher(carPosePublisher);
 
     ros::Subscriber fusionSub = handle.subscribe("fusion_cones", 1, &SLAMSynch::DoMap, &synchObj);
     ros::Subscriber poseWithCov = handle.subscribe("pose", 1, &SLAMSynch::DoPose, &synchObj);

@@ -16,9 +16,9 @@ SLAMSynch::~SLAMSynch()
 
 }
 
-void SLAMSynch::SetCarStatePublisher(ros::Publisher carStatePublisher)
+void SLAMSynch::SetCarPosePublisher(ros::Publisher carPosePublisher)
 {
-    m_slam.SetCarStatePublisher(carStatePublisher);
+    m_slam.SetCarPosePublisher(carPosePublisher);
 }
 
 void SLAMSynch::SetMapPublisher(ros::Publisher mapPublisher)

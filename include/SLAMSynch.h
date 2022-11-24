@@ -17,7 +17,7 @@ public:
     ~SLAMSynch();
 
     void SetMapPublisher(ros::Publisher mapPublisher);
-    void SetCarStatePublisher(ros::Publisher carStatePublisher);
+    void SetCarPosePublisher(ros::Publisher carPosePublisher);
     void DoMap(const sgtdv_msgs::ConeArr::ConstPtr &msg);
     void DoPose(const geometry_msgs::PoseWithCovariance::ConstPtr &msg);
 

@@ -43,12 +43,12 @@ public:
     ~SLAM();
 
     void SetMapPublisher(ros::Publisher mapPublisher);
-    void SetCarStatePublisher(ros::Publisher carStatePublisher);
+    void SetCarPosePublisher(ros::Publisher carPosePublisher);
     void Do(const SLAMMsg &msg);
 
 private:
     ros::Publisher m_mapPublisher;
-    ros::Publisher m_carStatePublisher;
+    ros::Publisher m_carPosePublisher;
     std::vector<Observation> m_observations;
     std::list<sgtdv_msgs::Cone> m_coneCandidates;
     cv::Mat1f m_muUpdate;           //vektor stavov
