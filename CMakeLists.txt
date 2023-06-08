@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   sgtdv_msgs 
+  fsd_common_msgs
 )
 
 find_package(OpenCV REQUIRED)
@@ -26,7 +27,7 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
 )
 
-add_executable(${PROJECT_NAME} src/SLAMNODE.cpp src/SLAM.cpp src/SLAMSynch.cpp)
+add_executable(${PROJECT_NAME} src/SLAM.cpp)
 
 target_link_libraries(slam
   ${catkin_LIBRARIES}
