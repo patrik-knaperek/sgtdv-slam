@@ -4,7 +4,7 @@
 /*****************************************************/
 
 
-#include "../include/SLAM.h"
+#include "../include/slam/slam.h"
 
 
 SLAM::SLAM()
@@ -118,7 +118,7 @@ void SLAM::ConesCallbackReal(const sgtdv_msgs::ConeArr::ConstPtr& msg)
       DataAssEuclid();
 
       vector<double> newRow;
-      newRow = {m_coneAbsX, m_coneAbsY, cone.color};
+      newRow = {m_coneAbsX, m_coneAbsY, static_cast<double>(cone.color)};
 
       m_coneAbsVect.push_back(newRow);
     }

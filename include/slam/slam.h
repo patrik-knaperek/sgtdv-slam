@@ -16,7 +16,7 @@
 #include <cmath>
 #include "opencv2/core/core.hpp"
 #include "opencv2/core/saturate.hpp"
-#include <Eigen/Dense>
+#include <eigen3/Eigen/Dense>
 #include <vector>
 #include <limits>
 #include <geometry_msgs/Pose.h>

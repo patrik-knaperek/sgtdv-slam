@@ -27,7 +27,7 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
 )
 
-add_executable(${PROJECT_NAME} src/SLAM.cpp)
+add_executable(${PROJECT_NAME} src/slam.cpp)
 
 target_link_libraries(slam
   ${catkin_LIBRARIES}
